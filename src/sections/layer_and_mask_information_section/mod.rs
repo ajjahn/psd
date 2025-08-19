@@ -61,6 +61,16 @@ pub struct LayerAndMaskInformationSection {
     pub(crate) groups: Groups,
 }
 
+impl LayerAndMaskInformationSection {
+    /// Create an empty LayerAndMaskInformationSection (no layers, no groups).
+    pub(crate) fn empty() -> Self {
+        Self {
+            layers: Layers::new(),
+            groups: Groups::with_capacity(0),
+        }
+    }
+}
+
 /// Frame represents a group stack frame
 #[derive(Debug)]
 struct Frame {
@@ -276,6 +286,7 @@ impl PsdSerialize for ChannelImageData<'_> {
         let compression = match bytes {
             ChannelBytes::RawData(_) => PsdChannelCompression::RawData,
             ChannelBytes::RleCompressed(_) => PsdChannelCompression::RleCompressed,
+            ChannelBytes::RleCompressedScanlines { .. } => PsdChannelCompression::RleCompressed,
         };
 
         compression.write(buffer);
@@ -293,14 +304,16 @@ impl PsdSerialize for ChannelInformation<'_> {
         for (kind, bytes) in self.0.iter() {
             kind.write(buffer); // 2 bytes for Channel ID
 
-            let bytes = match bytes {
-                ChannelBytes::RawData(bytes) => bytes,
-                ChannelBytes::RleCompressed(bytes) => bytes,
+            let channel_data_len: u32 = match bytes {
+                ChannelBytes::RawData(bytes) => bytes.len() as u32,
+                ChannelBytes::RleCompressed(bytes) => bytes.len() as u32,
+                ChannelBytes::RleCompressedScanlines { scanline_lengths, data } => {
+                    (scanline_lengths.len() as u32) * 2 + (data.len() as u32)
+                }
             };
 
-            // Channel image data
-            // 2 bytes for compression type + channel image data length
-            buffer.write((2 + bytes.len() as u32).to_be_bytes());
+            // Channel image data length excludes the 2 bytes of compression; we add them here
+            buffer.write((2 + channel_data_len).to_be_bytes());
         }
     }
 }

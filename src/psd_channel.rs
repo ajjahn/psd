@@ -93,17 +93,37 @@ pub trait IntoRgba {
                 ChannelBytes::RawData(green) => sixteen_to_eight_rgba(red, green),
                 ChannelBytes::RleCompressed(green) => {
                     let green = &rle_decompress(green);
-
+                    sixteen_to_eight_rgba(red, green)
+                }
+                ChannelBytes::RleCompressedScanlines { data, .. } => {
+                    let green = &rle_decompress(data);
                     sixteen_to_eight_rgba(red, green)
                 }
             },
             ChannelBytes::RleCompressed(red) => {
                 let red = &rle_decompress(red);
-
                 match self.green().unwrap() {
                     ChannelBytes::RawData(green) => sixteen_to_eight_rgba(red, green),
                     ChannelBytes::RleCompressed(green) => {
                         let green = &rle_decompress(green);
+                        sixteen_to_eight_rgba(red, green)
+                    }
+                    ChannelBytes::RleCompressedScanlines { data, .. } => {
+                        let green = &rle_decompress(data);
+                        sixteen_to_eight_rgba(red, green)
+                    }
+                }
+            }
+            ChannelBytes::RleCompressedScanlines { data, .. } => {
+                let red = &rle_decompress(data);
+                match self.green().unwrap() {
+                    ChannelBytes::RawData(green) => sixteen_to_eight_rgba(red, green),
+                    ChannelBytes::RleCompressed(green) => {
+                        let green = &rle_decompress(green);
+                        sixteen_to_eight_rgba(red, green)
+                    }
+                    ChannelBytes::RleCompressedScanlines { data, .. } => {
+                        let green = &rle_decompress(data);
                         sixteen_to_eight_rgba(red, green)
                     }
                 }
@@ -134,6 +154,9 @@ pub trait IntoRgba {
             // https://en.wikipedia.org/wiki/PackBits
             ChannelBytes::RleCompressed(channel_bytes) => {
                 self.insert_rle_channel(rgba, channel_kind, &channel_bytes);
+            }
+            ChannelBytes::RleCompressedScanlines { data, .. } => {
+                self.insert_rle_channel(rgba, channel_kind, &data);
             }
         }
     }
@@ -198,7 +221,7 @@ pub trait IntoRgba {
 
 /// Rle decompress a channel
 #[allow(dead_code)]
-fn rle_decompress(bytes: &[u8]) -> Vec<u8> {
+pub(crate) fn rle_decompress(bytes: &[u8]) -> Vec<u8> {
     let mut cursor = PsdCursor::new(&bytes[..]);
 
     let mut decompressed = vec![];
@@ -223,6 +246,64 @@ fn rle_decompress(bytes: &[u8]) -> Vec<u8> {
     }
 
     decompressed
+}
+
+/// RLE (PackBits) compress a planar channel buffer by scanlines.
+/// Returns (per-scanline byte lengths, concatenated compressed data).
+pub(crate) fn rle_compress_scanlines(
+    input: &[u8],
+    width: usize,
+    height: usize,
+    bytes_per_sample: usize,
+) -> (Vec<u16>, Vec<u8>) {
+    assert_eq!(input.len(), width * height * bytes_per_sample);
+    let mut lengths = Vec::with_capacity(height);
+    let mut data = Vec::new();
+
+    for row in 0..height {
+        let start = row * width * bytes_per_sample;
+        let end = start + width * bytes_per_sample;
+        let line = &input[start..end];
+        let compressed = packbits_compress(line);
+        lengths.push(compressed.len() as u16);
+        data.extend_from_slice(&compressed);
+    }
+
+    (lengths, data)
+}
+
+fn packbits_compress(input: &[u8]) -> Vec<u8> {
+    let mut out = Vec::with_capacity(input.len());
+    let mut i = 0;
+    while i < input.len() {
+        // Check for run
+        let mut run_len = 1;
+        while i + run_len < input.len() && input[i] == input[i + run_len] && run_len < 128 {
+            run_len += 1;
+        }
+        if run_len >= 3 {
+            // Emit run
+            out.push((1i16 - run_len as i16) as i8 as u8); // -(run_len-1) - 1 => 1 - run_len
+            out.push(input[i]);
+            i += run_len;
+        } else {
+            // Emit literal up to next run or 128 bytes
+            let lit_start = i;
+            let mut lit_len = 0;
+            while i < input.len() {
+                // Look ahead for a run of >=3
+                if i + 2 < input.len() && input[i] == input[i + 1] && input[i] == input[i + 2] {
+                    break;
+                }
+                i += 1;
+                lit_len += 1;
+                if lit_len == 128 { break; }
+            }
+            out.push((lit_len as u8) - 1);
+            out.extend_from_slice(&input[lit_start..lit_start + lit_len]);
+        }
+    }
+    out
 }
 
 /// Take two 8 bit channels that together represent a 16 bit channel and convert them down
