@@ -363,7 +363,7 @@ mod tests {
 
     use super::*;
 
-    // Makes sure non PSD files get caught right away before getting a chance to create problems
+    /// Verify that `Psd::from_bytes` rejects non-PSD inputs early based on the file signature.
     #[test]
     fn psd_signature_fail() {
         let psd = include_bytes!("../tests/fixtures/green-1x1.png");
@@ -376,12 +376,13 @@ mod tests {
         );
     }
 
+    /// Verify that `Psd::into_bytes` produces a PSD byte stream that can be reparsed.
     #[test]
     fn write_smoketest() {
-        let intial_bytes = include_bytes!(
+        let initial_bytes = include_bytes!(
             "../tests/fixtures/groups/green-1x1-one-group-one-layer-inside-one-outside.psd"
         );
-        let original = Psd::from_bytes(intial_bytes).unwrap();
+        let original = Psd::from_bytes(initial_bytes).unwrap();
 
         let bytes = original.into_bytes().unwrap();
 

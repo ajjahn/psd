@@ -356,7 +356,9 @@ where
     where
         B: AsRef<[u8]>,
     {
-        let _ = self.buffer.write(bytes.as_ref());
+        self.buffer
+            .write_all(bytes.as_ref())
+            .expect("failed to write PSD bytes");
     }
 
     pub fn write_pascal_string<S>(&mut self, string: S)
@@ -365,11 +367,17 @@ where
     {
         let bytes = string.as_ref();
         let len = bytes.len() as u8;
-        let _ = self.buffer.write(&[len]);
-        let _ = self.buffer.write(bytes);
+        self.buffer
+            .write_all(&[len])
+            .expect("failed to write Pascal string length");
+        self.buffer
+            .write_all(bytes)
+            .expect("failed to write Pascal string bytes");
 
         if len == 0 || len % 2 != 0 {
-            let _ = self.buffer.write(&[0]);
+            self.buffer
+                .write_all(&[0])
+                .expect("failed to write Pascal string padding");
         }
     }
 }
@@ -382,9 +390,15 @@ where
     where
         F: FnOnce(&mut Self),
     {
-        let start = self.buffer.stream_position().unwrap();
+        let start = self
+            .buffer
+            .stream_position()
+            .expect("failed to get PSD buffer position");
         func(self);
-        let end = self.buffer.stream_position().unwrap();
+        let end = self
+            .buffer
+            .stream_position()
+            .expect("failed to get PSD buffer position");
 
         assert!(start <= end);
         let length = (end - start) as usize;
@@ -393,7 +407,9 @@ where
         let pad = (pad - remander) % pad;
 
         for _ in 0..pad {
-            let _ = self.buffer.write(&[0_u8]);
+            self.buffer
+                .write_all(&[0_u8])
+                .expect("failed to write PSD padding");
         }
     }
 
@@ -418,25 +434,35 @@ where
     where
         F: FnOnce(&mut Self),
     {
-        let length_start = self.buffer.stream_position().unwrap();
+        let length_start = self
+            .buffer
+            .stream_position()
+            .expect("failed to get PSD buffer position");
 
         let data_start = self
             .buffer
             .seek(SeekFrom::Current(length_size.size() as i64))
-            .unwrap();
+            .expect("failed to seek in PSD buffer");
         func(self);
-        let data_end = self.buffer.stream_position().unwrap();
+        let data_end = self
+            .buffer
+            .stream_position()
+            .expect("failed to get PSD buffer position");
 
         assert!(data_start <= data_end);
         let data_length = data_end - data_start;
 
-        self.buffer.seek(SeekFrom::Start(length_start)).unwrap();
+        self.buffer
+            .seek(SeekFrom::Start(length_start))
+            .expect("failed to seek in PSD buffer");
         match length_size {
-            Length::Size1 => self.buffer.write(&(data_length as u8).to_be_bytes()),
-            Length::Size4 => self.buffer.write(&(data_length as u32).to_be_bytes()),
+            Length::Size1 => self.buffer.write_all(&(data_length as u8).to_be_bytes()),
+            Length::Size4 => self.buffer.write_all(&(data_length as u32).to_be_bytes()),
         }
-        .unwrap();
-        self.buffer.seek(SeekFrom::Start(data_end)).unwrap();
+        .expect("failed to write sized-length prefix");
+        self.buffer
+            .seek(SeekFrom::Start(data_end))
+            .expect("failed to seek in PSD buffer");
     }
 
     pub fn write_unicode_string<S>(&mut self, string: S)
@@ -499,7 +525,8 @@ where
         //buffer.write(utf16_unit_length.to_be_bytes());
         //buffer.write(&bytes);
 
-        write_unicode_string(self.0.as_ref(), &mut buffer.buffer).unwrap();
+        write_unicode_string(self.0.as_ref(), &mut buffer.buffer)
+            .expect("failed to write Unicode string");
     }
 }
 

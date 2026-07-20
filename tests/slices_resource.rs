@@ -14,7 +14,9 @@ use std::path::PathBuf;
 /// https://github.com/chinedufn/psd/pull/17
 /// https://github.com/chinedufn/psd/pull/18
 ///
-/// cargo test --test slices_resource name_of_slices_resource_group -- --exact
+// cargo test --test slices_resource name_of_slices_resource_group -- --exact
+/// Verify that the slices resource group name matches the PSD file stem across multiple name
+/// lengths.
 #[test]
 fn name_of_slices_resource_group() {
     let fixtures = ["1.psd", "12.psd", "123.psd", "1234.psd"];
@@ -38,7 +40,8 @@ fn fixtures_dir() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/slices-resource")
 }
 
-/// cargo test --test slices_resource slices_v7_8 -- --exact
+// cargo test --test slices_resource slices_v7_8 -- --exact
+/// Verify that a V7/V8 slices resource is parsed and its descriptor bounds are read correctly.
 #[test]
 fn slices_v7_8() -> Result<()> {
     let psd = include_bytes!("./fixtures/slices-v8.psd");

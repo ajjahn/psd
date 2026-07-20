@@ -767,6 +767,7 @@ fn composite(
 mod tests {
     use super::*;
 
+    /// Verify that `color_dodge` handles extremely small backdrop values without producing invalid output.
     #[test]
     fn test_color_dodge() {
         let color_b = 1e-8;
@@ -777,6 +778,7 @@ mod tests {
         assert_eq!(result, 0.0);
     }
 
+    /// Verify that `color_burn` handles near-opaque backdrop values without producing invalid output.
     #[test]
     fn test_color_burn() {
         let color_b = 0.9999999;

@@ -137,6 +137,8 @@ mod tests {
     use crate::sections::image_resources_section::image_resource::slices::SlicesImageResourceV7_8;
     use crate::sections::image_resources_section::image_resource::SlicesImageResource;
 
+    /// Verify that `ImageResourcesSection::write()` produces bytes that can be parsed by
+    /// `ImageResourcesSection::from_bytes()` and preserves key resource invariants.
     #[test]
     fn write_read_round_trip_image_resources() {
         let initial = make_image_resources_section();
@@ -147,11 +149,40 @@ mod tests {
         initial.write(&mut buffer);
 
         // Read the bytes back into a new ImageResourcesSection
-        let _result = ImageResourcesSection::from_bytes(&bytes).unwrap();
+        let result = ImageResourcesSection::from_bytes(&bytes).unwrap();
 
-        // Ensure that the original and deserialized sections are equal
-        // the following fails due to 'PartialEq' not being implemented all the way down
-        // assert_eq!(initial, _result);
+        // Ensure that key invariants survive the roundtrip.
+        assert_eq!(result.resources.len(), 1);
+
+        match &result.resources[0] {
+            ImageResource::Slices(SlicesImageResource::V7_8(v)) => {
+                assert_eq!(v.descriptor.name, "example_descriptor");
+                assert_eq!(v.descriptor.class_id, vec![1, 2, 3, 4]);
+
+                let bounds = v
+                    .descriptor
+                    .fields
+                    .get("bounds")
+                    .expect("expected bounds field");
+                match bounds {
+                    DescriptorField::Descriptor(d) => {
+                        assert_eq!(d.name, "example_bounds");
+                        assert_eq!(d.class_id, vec![0, 0, 0, 0]);
+
+                        match d.fields.get("Rght").expect("expected Rght") {
+                            DescriptorField::Integer(v) => assert_eq!(*v, 100),
+                            other => panic!("expected Integer for Rght, got: {other:?}"),
+                        }
+                        match d.fields.get("Btom").expect("expected Btom") {
+                            DescriptorField::Integer(v) => assert_eq!(*v, 200),
+                            other => panic!("expected Integer for Btom, got: {other:?}"),
+                        }
+                    }
+                    other => panic!("expected Descriptor for bounds, got: {other:?}"),
+                }
+            }
+            other => panic!("expected Slices(V7_8) resource, got: {other:?}"),
+        }
     }
 
     fn make_image_resources_section() -> ImageResourcesSection {

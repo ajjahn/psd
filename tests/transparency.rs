@@ -14,8 +14,8 @@ const BLUE_PIXEL: [u8; 4] = [0, 0, 255, 255];
 // In the layer and mask info section we fill in transparent rgba pixels ourselves as [0, 0, 0, 0]
 // const TRANSPARENT_PIXEL_LAYER: [u8; 4] = [0, 0, 0, 0];
 
-// Test that images that have transparent pixels and don't use compression
-// return the correct RGBA
+/// Verify that PSDs with transparent pixels and raw (uncompressed) channel data produce the
+/// expected RGBA for both the composite image and a named layer.
 #[test]
 fn transparency_raw_data() -> Result<()> {
     let psd = include_bytes!("./fixtures/3x3-opaque-center.psd");
@@ -36,8 +36,8 @@ fn transparency_raw_data() -> Result<()> {
     Ok(())
 }
 
-// Test that images that have transparent pixels and use rle compression
-// return the correct RGBA
+/// Verify that PSDs with transparent pixels and RLE-compressed channel data produce the expected
+/// RGBA for both the composite image and a named layer.
 #[test]
 fn transparency_rle_compressed() -> Result<()> {
     let psd = include_bytes!("./fixtures/16x16-rle-partially-opaque.psd");
@@ -72,8 +72,8 @@ fn transparency_rle_compressed() -> Result<()> {
     Ok(())
 }
 
-// Fixes an `already borrowed: BorrowMutError` that we were getting in the `flattened_pixel`
-// method when we were recursing into the method and trying to borrow when we'd already borrowed.
+/// Verify that flattening layers works when a transparent layer appears above an opaque layer
+/// (regression test for a prior borrow error during recursion).
 #[test]
 fn transparent_above_opaque() -> Result<()> {
     let psd = include_bytes!("./fixtures/transparent-above-opaque.psd");

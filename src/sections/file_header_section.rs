@@ -359,8 +359,7 @@ impl ColorMode {
 mod tests {
     use super::*;
 
-    // Valid:
-    //   >= 1, <= 56
+    /// Verify that `ChannelCount::new` accepts all valid channel counts (1..=56).
     #[test]
     fn valid_channel_count() {
         for channel_count in 1..=56 {
@@ -368,15 +367,14 @@ mod tests {
         }
     }
 
-    // Invalid:
-    //   < 1, > 56
+    /// Verify that `ChannelCount::new` rejects out-of-range channel counts.
     #[test]
     fn invalid_channel_count() {
         assert!(ChannelCount::new(0).is_none());
         assert!(ChannelCount::new(57).is_none());
     }
 
-    // We're passing in 25 bytes even though we're supposed to pass in 26 bytes
+    /// Verify that `FileHeaderSection::from_bytes` rejects inputs that are not exactly 26 bytes.
     #[test]
     fn incorrect_file_header_section_length() {
         let too_short = [0; 25];
@@ -387,6 +385,7 @@ mod tests {
         };
     }
 
+    /// Verify that `FileHeaderSection::from_bytes` rejects an invalid PSD signature.
     #[test]
     fn first_four_bytes_incorrect() {
         let bytes = make_bytes();
@@ -399,6 +398,7 @@ mod tests {
         };
     }
 
+    /// Verify that `FileHeaderSection::from_bytes` rejects an invalid PSD version.
     #[test]
     fn version_incorrect() {
         let mut bytes = make_bytes();
@@ -410,6 +410,7 @@ mod tests {
         };
     }
 
+    /// Verify that `FileHeaderSection::from_bytes` rejects a non-zero reserved field.
     #[test]
     fn invalid_reserved_section() {
         let mut bytes = make_bytes();
@@ -422,6 +423,7 @@ mod tests {
         };
     }
 
+    /// Verify that `FileHeaderSection::write` and `FileHeaderSection::from_bytes` round-trip.
     #[test]
     fn write_read_round_trip() {
         let initial = make_section();
